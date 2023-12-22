@@ -1,0 +1,17 @@
+#Ignora archivos csv
+*.csv
+
+#Ignora carpeta consultas_out
+consultas_out
+
+#Ignora carpeta contracts
+contracts
+
+#Ignora csv_out
+csv_out
+
+#Ignora .venv
+.venv
+
+#Ignora __pycache__
+__pycache__
