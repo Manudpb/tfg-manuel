@@ -10,30 +10,22 @@ export default function CargacsvEth(){
       if(e.target.files !== null){
         var fList:FileList = e.target.files
         var text = await fList.item(0)?.text();
-        console.log(text)
-
         setDataToSend(""+text)
       }
     }
     const callMyScriptApi = async () => {
-      var dataToSend
-      if(isChecked) dataToSend = "1"+getDataToSend
-      else dataToSend = "0"+getDataToSend
-      console.log(dataToSend)
+      const dataToSend = {'csv':getDataToSend,'checked':isChecked}
+      console.log(JSON.stringify(dataToSend))
       try {
-          const response = await fetch('http://localhost:5000/api/script-eth', {
+          const response = await fetch('http://localhost:5000/api/carga-eth', {
               method: 'POST',
               headers: {
-                  'Content-Type': 'text/plain'
+                  'Content-Type': 'application/json'
               },
-              body: dataToSend
-          });
-          if (response.ok) {
-              const result = await response.text();
-              console.log('Result:', result);
-          } else {
-              console.error('Failed to call API');
-          }
+              body: JSON.stringify(dataToSend)
+          }).then(response =>{console.log(response)}).catch(error =>{  console.error('Error:', error);
+        })
+          
       } catch (error) {
           console.error('Error:', error);
       }
