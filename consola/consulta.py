@@ -23,23 +23,46 @@ def realizar_consulta():
     print('6.SELECT MAX(col) FROM tabla WHERE cond')
     print('7.SELECT COUNT(col) FROM tabla')
     print('8.SELECT COUNT(col) FROM tabla WHERE cond')
+    print('9.Crea tu propia consulta')
     choice = input()
-    while(int(choice) > 8 or int(choice) < 0):
-        print('Selecciona una consulta del 1 al 8')
+    while(int(choice) > 9 or int(choice) < 0):
+        print('Selecciona una consulta del 1 al 9')
     cond = False
-    if(int(choice) % 2 == 0):
-        cond = True
-    vars = variables_queries[choice](columnas,cond)
-    queriesSplit = queries[choice]
-    query = ''
-    for i in range(len(vars)):
-        query = query + queriesSplit.split(sep=',')[i]+vars[i]
-    print(query)
+    if(int(choice) == 9):
+        print('Introduce tu query: ')
+        query = input()
+        formatoArr = [valor for valor in columnas if valor in query]
+        formato = ','.join(formatoArr)
+        if('MIN'.lower() not in query.lower() and 'MAX'.lower() not in query.lower() and 'COUNT'.lower() not in query.lower()):
+            if('*' in query):
+                formato = ','.join(columnas[1:])
+            elif('address' not in formato):
+                query = query[:len("select")] + ' address,' + query[len('address'):]
+                formato = 'address,'+formato    
+    else:
+        if(int(choice) % 2 == 0):
+            cond = True
+        vars = variables_queries[choice](columnas,cond)
+        formato = vars[0]
+        queriesSplit = queries[choice]
+        query = ''
+        for i in range(len(vars)):
+            query = query + queriesSplit.split(sep=',')[i]+vars[i]
+        print(query)
+        if(int(choice) == 1 or int(choice) == 2):
+            if('*' in query):
+                formato = ','.join(columnas[1:])
+            elif('address' not in formato):
+                query = query[:len("select")] + ' address,' + query[len('address'):]
+                formato = 'address,'+formato 
+
+
     cursor = conn.cursor()
     cursor.execute(query)
 
-    os.system('mkdir consultas_out')
-    f = open('consultas_out/' + query.replace('*','all') + '.csv' , "w")
+    os.system('mkdir ../consultas_out')
+    f = open('../consultas_out/' + quitar_caracteres(query) + '.csv' , "w")
+    f.write(formato + '\n')
     for x in cursor:
         f.write(','.join(map(str, x)))
         f.write('\n')
@@ -47,6 +70,16 @@ def realizar_consulta():
     
     print()
 
+def quitar_caracteres(s):
+    query = s
+    if('*' in query):
+        query = query.replace('*','todas')
+    if('>' in query):
+        query = query.replace('>','mayor')
+    if('<' in query):
+        query = query.replace('<','menor')
+    
+    return query
 
 def tablas_validas():
    #Conexion a la base de datos
@@ -69,11 +102,12 @@ def operadores_validos():
 def columnas_tabla(c,cond):
     print('Introduce las columnas:')
     cols = input()
-    colsSplit = cols.split(sep=',')
+    colsSplit = [valor.strip() for valor in cols.split(sep=',')]
     while not all(item in c for item in colsSplit):
         print('Introduce columnas validas:')
         cols = input()
-        colsSplit = cols.split(sep=',')
+        colsSplit = [valor.strip() for valor in cols.split(sep=',')]
+    cols = ','.join(colsSplit)
     tablas = tablas_validas()
     print('Introduce la tabla:')
     tabla = input()

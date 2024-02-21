@@ -92,7 +92,7 @@ df = pandas.concat(objs=[data,dataframe1,dataframe2,dataframe3],axis=1)
 
 #crea la tabla contracts si no existe
 cursor = conn.cursor()
-createquery = ('CREATE TABLE IF NOT EXISTS contracts (tx VARCHAR(250),address VARCHAR(250),name VARCHAR(250),compilerversion VARCHAR(250),optimization VARCHAR(250),runs VARCHAR(250),evmversion VARCHAR(250),licensetype VARCHAR(250),fuente VARCHAR(250),contractcreator VARCHAR(250),ruta VARCHAR(250))')
+createquery = ('CREATE TABLE IF NOT EXISTS contracts (tx VARCHAR(250),address VARCHAR(250),name VARCHAR(250),compilerversion VARCHAR(250),optimization VARCHAR(250),runs VARCHAR(250),evmversion VARCHAR(250),licensetype VARCHAR(250),fuente VARCHAR(250),contractcreator VARCHAR(250),ruta VARCHAR(250),PRIMARY KEY(address))')
 cursor.execute(createquery)
 
 #Insercion en la base de datos, se ignoran entradas duplicadas

@@ -25,36 +25,45 @@ fuente = input()
 #el formato del csv por ejemplo address,block_timestamp,bytecode
 print('Introduce el formato del csv: ')
 formato = input()
-formatoTotal = formato.split(sep=',')
+formatoTotal = [valor.strip() for valor in formato.split(",")]
 
 #el unico requsito es que el csv tenga el campo address
 while("address" not in formatoTotal):
     print('Es obligatorio que el csv de entrada tenga el campo "address"...')
     print('Introduce el formato del csv: ')
     formato = input()
-    formatoTotal = formato.split(sep=',')
-
-#columnas obligatorias que tendran todas las tablas
-obligatorios = ['compilerversion' ,'optimization', 'runs', 'evmversion', 'licensetype','fuente','contractcreator','ruta']
-formatoTotal.extend(obligatorios)
-
+    formatoTotal = [valor.strip() for valor in formato.split(",")]
 
 #pide la ruta del csv
 print('Introduce la ruta del csv:')
 ruta = input()
 
+#pregunta al usuario si tiene el formato en el csv
+print('¿Contiene el csv el formato?(Si es que si se asume en la primera linea)')
+valid = {"si": True, "s": True,"n": False, "no": False,}
+pp = input()
+while(pp.lower() not in valid):
+    print('Tienes que responder si o no...')
+    pp = input()
+if(valid[pp]):data = pandas.read_csv(ruta) #con formato
+else: data = pandas.read_csv(ruta,names=formatoTotal) #sin formato
+
+
+print(data)
+#columnas obligatorias que tendran todas las tablas
+obligatorios = ['compilerversion' ,'optimization', 'runs', 'evmversion', 'licensetype','fuente','contractcreator','ruta']
+formatoTotal.extend(obligatorios)
+
 #el nombre de la tabla será contracts_fuente
 tabla = 'contracts_' + fuente
 
 #si la tabla de la fuente no existe la crea
-createquery = (f'CREATE TABLE IF NOT EXISTS {tabla} (' + ' VARCHAR(250), '.join(formatoTotal) + ' VARCHAR(250))')
+createquery = (f'CREATE TABLE IF NOT EXISTS {tabla} (' + ' VARCHAR(250), '.join(formatoTotal) + ' VARCHAR(250), PRIMARY KEY (address))')
 cursor = conn.cursor()
 cursor.execute(createquery)
 
 
-data = pandas.read_csv(ruta)
 
-print(data)
 
 addresses = data.address.tolist()
 respuestas1 = []    #para guardar la respuesta de la primera llamada de la api
@@ -108,6 +117,11 @@ dataframe3 = pandas.DataFrame(rutas,columns=['ruta'])
 
 df = pandas.concat(objs=[data,dataframe1,dataframe2,dataframe3],axis=1)
 
+#crea la tabla contracts si no existe
+cursor = conn.cursor()
+createquery = (f'CREATE TABLE IF NOT EXISTS {tabla} (' + ' VARCHAR(250), '.join(formatoTotal) + ' VARCHAR(250),' +' PRIMARY KEY (address))')
+cursor.execute(createquery)
+
 #Insercion en la base de datos, se ignoran entradas duplicadas
 cursor = conn.cursor()
 insertquery = (f'INSERT IGNORE INTO {tabla} (' + ', '.join(formatoTotal) + ') VALUES (' + ', '.join(['%s' for i in range(len(formatoTotal))]) + ')')
@@ -124,6 +138,6 @@ os.system('mkdir csv_out')
 
 #Generacion del csv en el directorio /csv_out
 df.to_csv(os.getcwd() + '/csv_out/'+fuente +'_'+ time.strftime('%d-%m-%Y') +'.csv')
-print('Generado'+ fuente+ '_' + time.strftime('%d-%m-%Y') +'.csv')
+print('Generado '+ fuente+ '_' + time.strftime('%d-%m-%Y') +'.csv')
 print()
 

@@ -132,9 +132,9 @@ def carga_addresses_etherscan():
 
     #crea la tabla contracts si no existe
     cursor = conn.cursor()
-    createquery = ('CREATE TABLE IF NOT EXISTS contracts (tx VARCHAR(250),address VARCHAR(250),name VARCHAR(250),compilerversion VARCHAR(250),optimization VARCHAR(250),runs VARCHAR(250),evmversion VARCHAR(250),licensetype VARCHAR(250),fuente VARCHAR(250),contractcreator VARCHAR(250),ruta VARCHAR(250))')
+    createquery = ('CREATE TABLE IF NOT EXISTS contracts (tx VARCHAR(250),address VARCHAR(250),name VARCHAR(250),compilerversion VARCHAR(250),optimization VARCHAR(250),runs VARCHAR(250),evmversion VARCHAR(250),licensetype VARCHAR(250),fuente VARCHAR(250),contractcreator VARCHAR(250),ruta VARCHAR(250),PRIMARY KEY(address))')
     cursor.execute(createquery)
-    
+
     #Insercion en la base de datos, se ignoran entradas duplicadas
     insertquery = ("INSERT IGNORE INTO contracts (tx,address,name,compilerversion,optimization,runs,evmversion,licensetype,fuente,contractcreator,ruta) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)")
 
@@ -174,36 +174,45 @@ def carga_addresses_otros():
     #el formato del csv por ejemplo address,block_timestamp,bytecode
     print('Introduce el formato del csv: ')
     formato = input()
-    formatoTotal = formato.split(sep=',')
+    formatoTotal = [valor.strip() for valor in formato.split(",")]
 
     #el unico requsito es que el csv tenga el campo address
     while("address" not in formatoTotal):
         print('Es obligatorio que el csv de entrada tenga el campo "address"...')
         print('Introduce el formato del csv: ')
         formato = input()
-        formatoTotal = formato.split(sep=',')
-
-    #columnas obligatorias que tendran todas las tablas
-    obligatorios = ['compilerversion' ,'optimization', 'runs', 'evmversion', 'licensetype','fuente','contractcreator','ruta']
-    formatoTotal.extend(obligatorios)
-
+        formatoTotal = [valor.strip() for valor in formato.split(",")]
 
     #pide la ruta del csv
     print('Introduce la ruta del csv:')
     ruta = input()
 
+    #pregunta al usuario si tiene el formato en el csv
+    print('¿Contiene el csv el formato?(Si es que si se asume en la primera linea)')
+    valid = {"si": True, "s": True,"n": False, "no": False,}
+    pp = input()
+    while(pp.lower() not in valid):
+        print('Tienes que responder si o no...')
+        pp = input()
+    if(valid[pp]):data = pandas.read_csv(ruta) #con formato
+    else: data = pandas.read_csv(ruta,names=formatoTotal) #sin formato
+
+
+    print(data)
+    #columnas obligatorias que tendran todas las tablas
+    obligatorios = ['compilerversion' ,'optimization', 'runs', 'evmversion', 'licensetype','fuente','contractcreator','ruta']
+    formatoTotal.extend(obligatorios)
+
     #el nombre de la tabla será contracts_fuente
     tabla = 'contracts_' + fuente
 
     #si la tabla de la fuente no existe la crea
-    createquery = (f'CREATE TABLE IF NOT EXISTS {tabla} (' + ' VARCHAR(250), '.join(formatoTotal) + ' VARCHAR(250))')
+    createquery = (f'CREATE TABLE IF NOT EXISTS {tabla} (' + ' VARCHAR(250), '.join(formatoTotal) + ' VARCHAR(250), PRIMARY KEY (address))')
     cursor = conn.cursor()
     cursor.execute(createquery)
 
 
-    data = pandas.read_csv(ruta)
-    
-    print(data)
+
 
     addresses = data.address.tolist()
     respuestas1 = []    #para guardar la respuesta de la primera llamada de la api
@@ -257,6 +266,11 @@ def carga_addresses_otros():
 
     df = pandas.concat(objs=[data,dataframe1,dataframe2,dataframe3],axis=1)
 
+    #crea la tabla contracts si no existe
+    cursor = conn.cursor()
+    createquery = (f'CREATE TABLE IF NOT EXISTS {tabla} (' + ' VARCHAR(250), '.join(formatoTotal) + ' VARCHAR(250),' +' PRIMARY KEY (address))')
+    cursor.execute(createquery)
+
     #Insercion en la base de datos, se ignoran entradas duplicadas
     cursor = conn.cursor()
     insertquery = (f'INSERT IGNORE INTO {tabla} (' + ', '.join(formatoTotal) + ') VALUES (' + ', '.join(['%s' for i in range(len(formatoTotal))]) + ')')
@@ -275,7 +289,6 @@ def carga_addresses_otros():
     df.to_csv(os.getcwd() + '/csv_out/'+fuente +'_'+ time.strftime('%d-%m-%Y') +'.csv')
     print('Generado '+ fuente+ '_' + time.strftime('%d-%m-%Y') +'.csv')
     print()
-
 
 def salir():
     print('Saliendo...')
@@ -338,7 +351,7 @@ def realizar_consulta():
 
 def quitar_caracteres_invalidos(s):
     if('*' in s):
-        s = s.replace('*','all')
+        s = s.replace('*','todas')
     if('>' in s):
         s = s.replace('>','mayor')
     if('<' in s):
