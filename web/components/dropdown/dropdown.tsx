@@ -2,11 +2,11 @@ import { Dispatch, SetStateAction, useState } from 'react'
 import styles from './styles.module.css'
 
 interface DropdownProps{
-    getFuente:number|undefined;
-    setFuente:Dispatch<SetStateAction<number|undefined>>;
+    getFuente:number|undefined
+    setFuente:Dispatch<SetStateAction<number|undefined>>
 }
 export default function Dropdown({getFuente,setFuente}:DropdownProps) {
-    const menuItems = ["Ethereum","Otra"];
+    const menuItems = ["Ethereum","Otra"]
     return (
         <>
             <div className= {styles.dropdown}>
