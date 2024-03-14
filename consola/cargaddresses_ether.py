@@ -6,6 +6,42 @@ import mysql.connector
 import time
 import json
 
+
+def quitar_imports(text):
+    # Split the text into lines
+    lines = text.split('\n')
+    new_lines = []
+    in_import_block = False
+
+    # Iterate through the lines
+    for line in lines:
+        # Check if we're in an import block
+        if in_import_block:
+            # Check if the current line contains a ";"
+            semicolon_index = line.find(';')
+            if semicolon_index != -1:
+                # End of import block, remove the portion of the line from "import" to ";"
+                line = line[:in_import_block] + line[semicolon_index + 1:]
+                in_import_block = False
+            else:
+                # The import block continues to the next line
+                continue
+        
+        # Find all occurrences of "import" in the line
+        import_index = line.find('import')
+        if import_index != -1:
+            # Start of import block
+            in_import_block = import_index
+            continue
+
+        # Add the line to the new lines
+        new_lines.append(line)
+
+    # Join the new lines back together
+    new_text = '\n'.join(new_lines)
+
+    return new_text
+
 #Conexion a la base de datos
 conn = mysql.connector.connect(user=config.userdb,
                             password=config.passdb,
@@ -63,13 +99,33 @@ for address in addresses:
             x = resp['result'][0]['SourceCode']
             x = x[1:-1]
             res_dictionary = json.loads(x)
+            contratoEntero = ""
             for contract in res_dictionary['sources']:
                 contractD = contract.split(sep='/')
                 f = open(path +'/' + contractD[-1] , "w")
                 f.write(res_dictionary['sources'][contract]['content'])
+                contratoEntero += res_dictionary['sources'][contract]['content']
                 f.close()
+            f = open(path +'/' + address+'.sol' , "w")
+            f.write(quitar_imports(contratoEntero))
+            f.close()
+        elif resp['result'][0]['SourceCode'].startswith("{"):
+
+            path = config.dir + '\\' + address
+            rutas.append(path)
+            #os.mkdir(path)
+            os.system('mkdir ' + path)
+            x = resp['result'][0]['SourceCode']
+            res_dictionary = json.loads(x)
+            print(res_dictionary)
+            for contract in res_dictionary:
+                contractD = contract.split(sep='/')
+                f = open(path +'/' + contractD[-1] , "w")
+                f.write(res_dictionary['sources'][contract]['content'])
+                f.close()
+ 
         else:
-            #si SourceCode no empieza con {{ simplemente se crea el archivo con la address como nombre 
+            #si SourceCode no empieza con {{ o { simplemente se crea el archivo con la address como nombre 
             #y se escribe el codigo fuente en el archivo
             f = open(config.dir + '/' + address + '.sol', "w")
             rutas.append(config.dir + '/' + address + '.sol')
@@ -110,3 +166,4 @@ os.system('mkdir csv_out')
 df.to_csv(os.getcwd() + '/csv_out/etherscan_'+ time.strftime('%d-%m-%Y') +'.csv')
 print('Generado etherscan_' + time.strftime('%d-%m-%Y') +'.csv')
 print()
+

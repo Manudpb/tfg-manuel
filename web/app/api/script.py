@@ -1,11 +1,13 @@
 import json
 import os
+import tempfile
 import time
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import pandas
 import mysql.connector
 import requests
+import subprocess
 
 app = Flask(__name__)
 CORS(app)
@@ -48,10 +50,11 @@ def carga_address_eth():
     matriz = [n.split(';') for n in x]
 
     dataClientDF = pandas.DataFrame(data=matriz,columns=colnames)
-    if(dataClient.get('checked') == False):data = pandas.DataFrame(dataClientDF[2:],columns=colnames) #sin preprocesado
+    if(dataClient.get('checked') == True):data = pandas.DataFrame(dataClientDF[1:-1],columns=colnames) #sin preprocesado
     else: data = dataClientDF
-
     data = data.reset_index(drop=True)
+
+    print(data)
 
     addresses = data.address.tolist()
     respuestas1 = []    #para guardar la respuesta de la primera llamada de la api
@@ -157,7 +160,7 @@ def carga_address_otras():
     matriz = [n.split(';') for n in x]
 
     dataClientDF = pandas.DataFrame(data=matriz,columns=colnames)
-    if(dataClient.get('checked') == False):data = pandas.DataFrame(dataClientDF[2:],columns=colnames) #sin preprocesado
+    if(dataClient.get('checked') == True):data = pandas.DataFrame(dataClientDF[1:-1],columns=colnames) #sin preprocesado
     else: data = dataClientDF
 
     data = data.reset_index(drop=True)
@@ -271,23 +274,57 @@ def consulta():
     
     data = request.json
     query = data.get('consulta')
-    query = query.replace('todas','*')
+    query = query.replace('Todas','*')
 
-    print(query)
     cursor = conn.cursor()
 
+    columnas = ['*','address','compilerversion' ,'optimization', 'runs', 'evmversion', 'licensetype','fuente','contractcreator','ruta']
 
+    formatoArr = [valor for valor in columnas if valor in query.lower()]
+    formato = ','.join(formatoArr)
+
+    if('*' in query):
+        formato = ','.join(columnas[1:])
+    elif('address' not in formato):
+        query = query[:len("select")] + ' address,' + query[len('address'):]
+        formato = 'address,'+formato    
+    print(formato)
     cursor.execute(query)
+    res = cursor.fetchall()
+
     os.makedirs(ruta_root+"consultas_out",exist_ok=True)
     query = query.replace('>','mayor')
     query = query.replace('<','menor')
     f = open(ruta_root+'consultas_out/' + query.replace('*','todas') + '.csv' , "w")
-    for x in cursor:
+    csvCompleto = formato +'\n'
+    f.write(formato + '\n')
+    for x in res:
+        csvCompleto += ','.join(map(str, x))
+        csvCompleto += '\n'
         f.write(','.join(map(str, x)))
         f.write('\n')
     f.close()
     
-    return jsonify({'ruta': ruta_root+'consultas_out/' + query.replace('*','todas') + '.csv'})
+    return jsonify({'ruta': ruta_root+'consultas_out/' + query.replace('*','todas') + '.csv','csv':csvCompleto})
+
+@app.route('/api/compilar', methods=['POST'])
+def compilar_contrato():
+    
+    data = request.json
+    nombre = data.get('contrato')
+    print(nombre)
+    version = data.get('version')
+    print(version)
+    texto = data.get('contratoTexto')
+
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as temp_file:
+        temp_file.write(texto)
+        temp_file_path = temp_file.name
+    
+    subprocess.run(["solc-select","use",version,"--always-install"])
+    subprocess.run(["solc", "-o", ruta_root+"compilados/"+nombre, "--bin",  "--asm","--overwrite", temp_file_path])
+    
+    return jsonify({})
 
 if __name__ == '__main__':
     app.run(debug=True)

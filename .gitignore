@@ -18,3 +18,9 @@ __pycache__
 
 #Ignora documentacion
 Documentacion
+
+node_modules
+
+*.bin
+
+*.evm

@@ -5,6 +5,7 @@ import config
 import mysql.connector
 import time
 import json
+import subprocess
 
 
 def menu():
@@ -15,14 +16,25 @@ def menu():
             print('2.Cargar csv de etherscan')
             print('3.Cargar csv de otra fuente')
             print('4.Realizar consulta')
+            print('5.Compilar contrato')
             print('0.Salir')
             print('Opcion: ')
             choice = input()
-            while(int(choice) < 0 or int(choice) > 4):
-                 print('Acciones validas entre 0 y 4...')
+            while(int(choice) < 0 or int(choice) > 5):
+                 print('Acciones validas entre 0 y 5...')
                  choice = input()
             opciones[choice]()
             
+def compilar_contrato():
+    print('Introduce ruta del contrato a compilar')
+    ruta = input()
+    contrato = ruta[ruta.find('0x'):]
+    print(contrato)
+    print('Introduce version del compilador')
+    version = input()
+    subprocess.run(["solc-select","use",version,"--always-install"])
+    subprocess.run(["solc", "-o", "compilados/"+contrato, "--bin",  "--asm", "--overwrite", ruta])
+
 
 '''Función para crear la base de datos'''
 def crear_bd():
@@ -473,6 +485,7 @@ opciones = {
     '2': carga_addresses_etherscan,
     '3': carga_addresses_otros,
     '4': realizar_consulta,
+    '5': compilar_contrato,
     '0':salir
 }
 
