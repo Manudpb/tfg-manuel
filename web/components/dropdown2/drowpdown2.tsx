@@ -23,7 +23,7 @@ export default function Dropdown2({menuItems,getItem,setItem,nombre}:DropdownPro
                         setIsOpen(old => !old);
                     }}
                 >{getItem ===undefined ? <p>{nombre}</p>:<p className='align'>{menuItems[getItem]}</p>}</button>
-                <div className={`absolute z-30 w-[250px] flex flex-col py-4 shadow-xl bg-[#f1f1f1] rounded-md ${transClass}`}>
+                <div className={`absolute z-30 w-[250px] max-h-60 flex flex-col py-4 shadow-xl bg-[#f1f1f1] overflow-auto rounded-md ${transClass}`}>
                     {
                         menuItems.map((item,i) =>
                             <a

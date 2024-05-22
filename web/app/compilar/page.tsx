@@ -1,5 +1,5 @@
 'use client'
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 
 export default function Compilar(){
     const[isSolSet, setSol] = useState<string>("")
@@ -9,31 +9,92 @@ export default function Compilar(){
     const[isError, setError] = useState<boolean>(false)
     const[getVersion, setVersion] = useState<string>("")
     const[getPragmas,setPragmas] = useState<Set<string>>(new Set)
+    const[getPragmasVersion, setPragmasVersion] = useState<Set<string>>(new Set)
     const[getData,setData] = useState<string>("")
     const stringArray = Array.from(getPragmas)
+    const stringVersionArray = Array.from(getPragmasVersion)
+
+    const paragraphRef = useRef<HTMLParagraphElement>(null);
 
 
+    function parseVersion(versionString:string) {
+      if (versionString.startsWith("^")) {
+          return versionString.substring(1);
+      } else if (versionString.startsWith('>')) {
+          const version = versionString.substring(1).split(".");
+          if(version[2] == "24"){
+            version[1] = String(parseInt(version[1]) + 1);
+            version[2] = "0";
+          } else{
+            version[2] = String(parseInt(version[2]) + 1);
+          }
+          return version.join(".");
+      } else if (versionString.startsWith(">=")) {
+          return versionString.substring(2);
+      }else if (versionString.startsWith("<=")) {
+        return versionString.substring(2);
+    } else if (versionString.startsWith("<")) {
+          const version = versionString.substring(1).split(".");
+          if(version[2] == "0"){
+            version[1] = String(parseInt(version[1]) - 1);
+            version[2] = "24";
+          } else{
+            version[2] = String(parseInt(version[2]) - 1);
+          }
+
+          return version.join(".");
+      } else {
+          return versionString;
+      }
+  }
+
+    const handleTextChange = () => {
+      if (paragraphRef.current) {
+        setData(paragraphRef.current.textContent || "");
+        const selection = window.getSelection();
+        const range = selection?.getRangeAt(0);
+        if (range) {
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+        }
+      }
+    };
+  
+    useEffect(() => {
+      if (paragraphRef.current) {
+        paragraphRef.current.textContent = "";
+      }
+    }, []);
     async function readText(e:ChangeEvent<HTMLInputElement>) {
         if(e.target.files !== null){
           setContractName(e.target.files[0].name)
           var fList:FileList = e.target.files
           var text = await fList.item(0)?.text();
           var pragmas = []
+          var pragmasVersion = []
           var pragma = text?.indexOf('pragma solidity')
           if(pragma != undefined && text != undefined){
             var textSplit = text.split('\n')
             for (let index = 0; index < textSplit.length; index++) {
-                if(textSplit[index].indexOf('pragma solidity') != -1) pragmas.push(textSplit[index].substring(textSplit[index].indexOf('pragma solidity'),textSplit[index].indexOf(';')))
+                if(textSplit[index].indexOf('pragma solidity') != -1){ 
+                  pragmasVersion.push((textSplit[index].substring(textSplit[index].indexOf('pragma solidity')+'pragma solidity'.length,textSplit[index].indexOf(';'))))
+                  pragmas.push(textSplit[index].substring(textSplit[index].indexOf('pragma solidity'),textSplit[index].indexOf(';')))
+                }
               }
+                setPragmasVersion(new Set (pragmasVersion))
                 setPragmas(new Set(pragmas))
                 setData(text)
             }
         }
       }
+
+
+
     const callMyScriptApi = async () => {
         setLoaded(true)
         setError(false)
         setSuccess(false)
+        console.log(getData)
         const dataToSend = {'contratoTexto':getData,'version':getVersion,'contrato':getContractName}
         try {
             const response = await fetch('http://localhost:5000/api/compilar', {
@@ -66,16 +127,17 @@ export default function Compilar(){
         </div>
         <div>
               <p>Introduce la version del compilador</p>
-              <input onChange={(e)=>setVersion(e.target.value)} className="placeholder:italic placeholder:text-slate-400 block bg-white w-full border border-slate-300 rounded-md py-2 pl-3 pr-3 shadow-sm focus:outline-none focus:border-sky-500 focus:ring-sky-500 focus:ring-1 sm:text-sm" placeholder="Introduce la version..." type="text"/>
+              <input value={getVersion} onChange={(e)=>setVersion(e.target.value)} className="placeholder:italic placeholder:text-slate-400 block bg-white w-full border border-slate-300 rounded-md py-2 pl-3 pr-3 shadow-sm focus:outline-none focus:border-sky-500 focus:ring-sky-500 focus:ring-1 sm:text-sm" placeholder="Introduce la version..." type="text"/>
             </div>
         <div  className=" flex flex-col space-y-5 items-center">          
 
             {isSolSet.endsWith(".sol")?
             <>
                 <p>Pragmas extraido del contrato: </p>
-                {stringArray.map((str,index) =>(<p key={index}>{str}</p>))}
-                <div className="w-full h-80 border border-gray-300 overflow-auto p-4">
-                    <pre className="whitespace-pre-wrap break-words">{getData}</pre>
+                {stringVersionArray.map((str,index) =>(<p className="cursor-pointer" key={index} onClick={()=>setVersion(parseVersion(str.trim()))}>pragma solidity {parseVersion(str.trim())}</p>))}
+                <div className="border border-gray-300 rounded-md  w-full max-h-80 overflow-auto">
+                  <p ref={paragraphRef} className=" whitespace-pre-wrap break-words p-2 focus:outline-none"
+                    onBlur={handleTextChange} contentEditable="true">{getData}</p>
                 </div>
             </>
             :

@@ -8,18 +8,11 @@ import pandas
 import mysql.connector
 import requests
 import subprocess
+from google.cloud import bigquery
 
 app = Flask(__name__)
 CORS(app)
 
-
-#db_host = os.getenv("hostdb")
-#db_port = os.getenv("portdb")
-#db_name = os.getenv("namedb")
-#db_user = os.getenv("userdb")
-#db_password = os.getenv("passdb")
-
-#apikey = os.getenv("apikey")
 
 dir = 'contracts'
 ruta_root = '../../../'
@@ -110,7 +103,7 @@ def carga_address_eth():
     df = pandas.concat(objs=[data,dataframe1,dataframe2,dataframe3],axis=1)
     #crea la tabla contracts si no existe
     cursor = conn.cursor()
-    createquery = ('CREATE TABLE IF NOT EXISTS contracts (tx VARCHAR(250),address VARCHAR(250),name VARCHAR(250),compilerversion VARCHAR(250),optimization VARCHAR(250),runs VARCHAR(250),evmversion VARCHAR(250),licensetype VARCHAR(250),fuente VARCHAR(250),contractcreator VARCHAR(250),ruta VARCHAR(250))')
+    createquery = ('CREATE TABLE IF NOT EXISTS contracts (tx VARCHAR(250), PRIMARY KEY(address),name VARCHAR(250),compilerversion VARCHAR(250),optimization VARCHAR(250),runs VARCHAR(250),evmversion VARCHAR(250),licensetype VARCHAR(250),fuente VARCHAR(250),contractcreator VARCHAR(250),ruta VARCHAR(250))')
     cursor.execute(createquery)
 
     #Insercion en la base de datos, se ignoran entradas duplicadas
@@ -242,6 +235,30 @@ def carga_address_otras():
 
     return jsonify({'message': 'Data received successfully'})
 
+@app.route('/api/consultas-anteriores',methods=['GET'])
+def consultas_anteriores():
+    conn = mysql.connector.connect(user=userdb,
+                    password=passdb,
+                    host=hostdb,
+                    db = namedb
+                    )
+    cursor = conn.cursor()
+    createquery = ('CREATE TABLE IF NOT EXISTS consultas (nombre_consulta VARCHAR(250) PRIMARY KEY,consulta VARCHAR(250),fecha VARCHAR(250))')
+    cursor.execute(createquery)
+    query = ("SELECT nombre_consulta,consulta FROM consultas")
+    cursor.execute(query)
+    listConsultas = cursor.fetchall()
+    print(listConsultas)
+    cursor.close()
+    conn.close()
+
+    consultas_anteriores = [consulta[0] for consulta in listConsultas]
+    consultas = [consulta[1] for consulta in listConsultas]
+
+
+    return jsonify({'consultas_lista': consultas_anteriores,'consultas':consultas})
+
+        
 
 @app.route('/api/tables', methods=['GET'])
 def get_tables():
@@ -264,6 +281,28 @@ def get_tables():
 
     return jsonify({'tables': table_names})
 
+@app.route('/api/consulta-bq', methods=['POST'])
+def consultabq():
+    conn = mysql.connector.connect(user=userdb,
+                        password=passdb,
+                        host=hostdb,
+                        db = namedb
+                        )
+    data = request.json
+    query = data.get('consulta')
+    nombre = data.get('nombre')
+    token = data.get('token')
+    print(query)
+    print(nombre)
+    client = bigquery.Client.from_service_account_json(token)
+    query_job = client.query(query)
+    rows = query_job.result()
+    print("address min max count")
+    for row in rows:
+        print(row[0],row[1],row[2],row[3])
+    return jsonify({'ruta': ruta_root+'consultas_out_bq/' + query + '.csv','csv':''})
+
+
 @app.route('/api/consulta', methods=['POST'])
 def consulta():
     conn = mysql.connector.connect(user=userdb,
@@ -276,8 +315,13 @@ def consulta():
     query = data.get('consulta')
     query = query.replace('Todas','*')
 
+    nombre = data.get('nombre')
     cursor = conn.cursor()
-
+    createquery = ('CREATE TABLE IF NOT EXISTS consultas (consulta VARCHAR(250),nombre_consulta VARCHAR(250) PRIMARY KEY,fecha VARCHAR(250))')
+    cursor.execute(createquery)
+    insertquery = ("INSERT IGNORE INTO consultas (nombre_consulta,consulta,fecha) VALUES (%s,%s, %s)")
+    val = (nombre,query,time.strftime('%d-%m-%Y'))
+    cursor.execute(insertquery,val)
     columnas = ['*','address','compilerversion' ,'optimization', 'runs', 'evmversion', 'licensetype','fuente','contractcreator','ruta']
 
     formatoArr = [valor for valor in columnas if valor in query.lower()]
@@ -289,13 +333,13 @@ def consulta():
         query = query[:len("select")] + ' address,' + query[len('address'):]
         formato = 'address,'+formato    
     print(formato)
+    print(query)
     cursor.execute(query)
     res = cursor.fetchall()
 
     os.makedirs(ruta_root+"consultas_out",exist_ok=True)
-    query = query.replace('>','mayor')
-    query = query.replace('<','menor')
-    f = open(ruta_root+'consultas_out/' + query.replace('*','todas') + '.csv' , "w")
+
+    f = open(ruta_root+'consultas_out/' + nombre +"_"+time.strftime('%d-%m-%Y') + '.csv' , "w")
     csvCompleto = formato +'\n'
     f.write(formato + '\n')
     for x in res:
@@ -304,23 +348,22 @@ def consulta():
         f.write(','.join(map(str, x)))
         f.write('\n')
     f.close()
-    
-    return jsonify({'ruta': ruta_root+'consultas_out/' + query.replace('*','todas') + '.csv','csv':csvCompleto})
+    conn.commit()
+    conn.close()
+
+    return jsonify({'ruta': 'consultas_out/' +nombre+'_'+time.strftime('%d-%m-%Y') + '.csv','csv':csvCompleto})
 
 @app.route('/api/compilar', methods=['POST'])
 def compilar_contrato():
     
     data = request.json
     nombre = data.get('contrato')
-    print(nombre)
     version = data.get('version')
-    print(version)
     texto = data.get('contratoTexto')
-
     with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as temp_file:
         temp_file.write(texto)
         temp_file_path = temp_file.name
-    
+        
     subprocess.run(["solc-select","use",version,"--always-install"])
     subprocess.run(["solc", "-o", ruta_root+"compilados/"+nombre, "--bin",  "--asm","--overwrite", temp_file_path])
     

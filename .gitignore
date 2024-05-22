@@ -24,3 +24,11 @@ node_modules
 *.bin
 
 *.evm
+
+*.opcode
+
+*.json
+
+Figuras
+
+*.docx

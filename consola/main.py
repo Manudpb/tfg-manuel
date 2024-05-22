@@ -328,27 +328,51 @@ def realizar_consulta():
     print('6.SELECT MAX(col) FROM tabla WHERE cond')
     print('7.SELECT COUNT(col) FROM tabla')
     print('8.SELECT COUNT(col) FROM tabla WHERE cond')
+    print('9.Crea tu propia consulta')
+
     choice = input()
-    while(int(choice) > 8 or int(choice) < 1):
+    while(int(choice) > 9 or int(choice) < 1):
         print()
-        print('Selecciona una consulta del 1 al 8')
+        print('Selecciona una consulta del 1 al 9')
         choice = input()
     cond = False
-    if(int(choice) % 2 == 0):
-        cond = True
-    vars = variables_queries[choice](columnas,cond)
+    print('Introduce un nombre para la consulta')
+    nombre = input()
+    if(int(choice) == 9):
+        print('Introduce tu query: ')
+        query = input()
+        formatoArr = [valor for valor in columnas if valor in query]
+        formato = ','.join(formatoArr)
+        if('MIN'.lower() not in query.lower() and 'MAX'.lower() not in query.lower() and 'COUNT'.lower() not in query.lower()):
+            if('*' in query):
+                formato = ','.join(columnas[1:])
+            elif('address' not in formato):
+                query = query[:len("select")] + ' address,' + query[len('address'):]
+                formato = 'address,'+formato    
+    else:
+        if(int(choice) % 2 == 0):
+            cond = True
 
+
+
+    vars = variables_queries[choice](columnas,cond)
     queriesSplit = queries[choice]
     query = ''
     for i in range(len(vars)):
         query = query + queriesSplit.split(sep=',')[i]+vars[i]
+    print("Consulta: ")
     print(query)
     cursor = conn.cursor()
+    createquery = ('CREATE TABLE IF NOT EXISTS consultas (consulta VARCHAR(250),nombre_consulta VARCHAR(250) PRIMARY KEY,fecha VARCHAR(250))')
+    cursor.execute(createquery)
+    insertquery = ("INSERT IGNORE INTO consultas (nombre_consulta,consulta,fecha) VALUES (%s,%s, %s)")
+    val = (nombre,query,time.strftime('%d-%m-%Y'))
+    cursor.execute(insertquery,val)
     cursor.execute(query)
 
     
     os.system('mkdir consultas_out')
-    f = open('consultas_out/'+quitar_caracteres_invalidos(query)+'.csv', "w")
+    f = open('consultas_out/'+nombre+'_'+time.strftime('%d-%m-%Y')+'.csv', "w")
     if(vars[0] == '*'):
         columnas.remove('*')
         f.write(','.join(columnas) + '\n')
@@ -358,7 +382,8 @@ def realizar_consulta():
         f.write(','.join(map(str, x)))
         f.write('\n')
     f.close()
-    
+    print('Generado ' + nombre+'_'+time.strftime('%d-%m-%Y') +'.csv')
+
     print()
 
 def quitar_caracteres_invalidos(s):

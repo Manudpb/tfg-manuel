@@ -1,7 +1,7 @@
 import config
 import mysql.connector
 import os
-
+import time
 
 
 def realizar_consulta():
@@ -13,10 +13,11 @@ def realizar_consulta():
                               )
     
     columnas = ['*','address','compilerversion' ,'optimization', 'runs', 'evmversion', 'licensetype','fuente','contractcreator','ruta']
+    print()
 
     print('Puedes elegir entre varias consultas:')
     print('1.SELECT columnas FROM tabla')
-    print('2.SELECT columnas FROM tabla WHERE condicion')
+    print('2.SELECT  columnas FROM tabla WHERE condicion')
     print('3.SELECT MIN(col) FROM tabla')
     print('4.SELECT MIN(col) FROM tabla WHERE cond')
     print('5.SELECT MAX(col) FROM tabla')
@@ -24,10 +25,15 @@ def realizar_consulta():
     print('7.SELECT COUNT(col) FROM tabla')
     print('8.SELECT COUNT(col) FROM tabla WHERE cond')
     print('9.Crea tu propia consulta')
+
     choice = input()
-    while(int(choice) > 9 or int(choice) < 0):
+    while(int(choice) > 9 or int(choice) < 1):
+        print()
         print('Selecciona una consulta del 1 al 9')
+        choice = input()
     cond = False
+    print('Introduce un nombre para la consulta')
+    nombre = input()
     if(int(choice) == 9):
         print('Introduce tu query: ')
         query = input()
@@ -42,32 +48,38 @@ def realizar_consulta():
     else:
         if(int(choice) % 2 == 0):
             cond = True
-        vars = variables_queries[choice](columnas,cond)
-        formato = vars[0]
-        queriesSplit = queries[choice]
-        query = ''
-        for i in range(len(vars)):
-            query = query + queriesSplit.split(sep=',')[i]+vars[i]
-        print(query)
-        if(int(choice) == 1 or int(choice) == 2):
-            if('*' in query):
-                formato = ','.join(columnas[1:])
-            elif('address' not in formato):
-                query = query[:len("select")] + ' address,' + query[len('address'):]
-                formato = 'address,'+formato 
 
 
+
+    vars = variables_queries[choice](columnas,cond)
+    queriesSplit = queries[choice]
+    query = ''
+    for i in range(len(vars)):
+        query = query + queriesSplit.split(sep=',')[i]+vars[i]
+    print("Consulta: ")
+    print(query)
     cursor = conn.cursor()
+    createquery = ('CREATE TABLE IF NOT EXISTS consultas (consulta VARCHAR(250),nombre_consulta VARCHAR(250) PRIMARY KEY,fecha VARCHAR(250))')
+    cursor.execute(createquery)
+    insertquery = ("INSERT IGNORE INTO consultas (nombre_consulta,consulta,fecha) VALUES (%s,%s, %s)")
+    val = (nombre,query,time.strftime('%d-%m-%Y'))
+    cursor.execute(insertquery,val)
     cursor.execute(query)
 
-    os.system('mkdir ../consultas_out')
-    f = open('../consultas_out/' + quitar_caracteres(query) + '.csv' , "w")
-    f.write(formato + '\n')
+    
+    os.system('mkdir consultas_out')
+    f = open('consultas_out/'+nombre+'_'+time.strftime('%d-%m-%Y')+'.csv', "w")
+    if(vars[0] == '*'):
+        columnas.remove('*')
+        f.write(','.join(columnas) + '\n')
+    else:
+        f.write(vars[0] + '\n')
     for x in cursor:
         f.write(','.join(map(str, x)))
         f.write('\n')
     f.close()
-    
+    print('Generado ' + nombre+'_'+time.strftime('%d-%m-%Y') +'.csv')
+
     print()
 
 def quitar_caracteres(s):
