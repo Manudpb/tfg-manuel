@@ -43,7 +43,7 @@ def carga_address_eth():
     matriz = [n.split(';') for n in x]
 
     dataClientDF = pandas.DataFrame(data=matriz,columns=colnames)
-    if(dataClient.get('checked') == True):data = pandas.DataFrame(dataClientDF[1:-1],columns=colnames) #sin preprocesado
+    if(dataClient.get('checked') == True):data = pandas.DataFrame(dataClientDF[1:],columns=colnames) #sin preprocesado
     else: data = dataClientDF
     data = data.reset_index(drop=True)
 
@@ -313,7 +313,7 @@ def consulta():
     
     data = request.json
     query = data.get('consulta')
-    query = query.replace('Todas','*')
+    query = query.replace('todas','*')
 
     nombre = data.get('nombre')
     cursor = conn.cursor()
