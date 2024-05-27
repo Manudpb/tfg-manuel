@@ -32,3 +32,5 @@ node_modules
 Figuras
 
 *.docx
+
+*.tmp
